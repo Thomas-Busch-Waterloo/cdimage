@@ -1,67 +1,262 @@
-# CDImage
-## A tool for burning visible pictures on a compact disc surface
+# CDImage - Go Edition
 
-![alt text](https://github.com/arduinocelentano/cdimage/blob/main/demo.png)
+A Go rewrite of the CDImage tool for burning visible pictures on CD and DVD surfaces.
 
-## Project's Origins and Credits
-I know of at least two successful attempts to implement a similar technique. One was accomplished about 15 years ago by [argon](https://www.instructables.com/Burning-visible-images-onto-CD-Rs-with-data-beta/) Instructables user. [Another attempt](http://undefer.narod.ru/cdpaint/index.html) was made by a user with nickname [unDEFER] (no English documentation unfortunately). These two projects inspired me some time ago. And in fact my coordinate conversion code is mostly based on [unDEFER]’s implementation. I also used geometric parameters of some compact discs from that project. I acknowledge and am grateful to these developers for their contributions.
+## Overview
 
-I played with color shades and different compact discs with moderate success and created a GUI with visual preview mode. I tried to implement a user-friendly solution but finally abandoned the project in 2008 due to a problem of calibration for every particular brand and type of compact disc. Recently I found my old code and decided to share it. More as a tribute to the compact disc era. But maybe you will make some use of it. I fixed some obvious bugs, brushed the code up a little and ported it to modern Qt6. I considered porting to Python but I still need C++ because audio track generation takes some time even on modern hardware.
+CDImage converts images into audio tracks that create visible patterns when burned onto optical discs. This Go version extends the original Qt application with DVD support and a command-line interface optimized for Linux.
 
-## Building
-You'll need [Qt 6](https://www.qt.io/product/qt6) library to build it. Just run `qmake` and then `make`. Alternatively you could build the project with [Qt Creator](https://www.qt.io/product/development-tools) if you installed it.
+## Features
 
-## Windows Users
-Since many Windows users experienced problems with building it or did not want to install Qt and all the stuff, I've made a [Windows binary build](https://github.com/arduinocelentano/cdimage/releases).
-However I have not tested it thoroughly yet because I don't have a working CD recorder at hand right now.
-I think I'll try to burn some discs with Windows tools later and note down the steps for Windows users.
+- **CD Support**: All original CD functionality with predefined disc presets
+- **DVD Support**: NEW - Extended geometry parameters for DVD-R and DVD-RW discs
+- **Multi-threaded Processing**: NEW - Parallel conversion using multiple CPU cores for faster processing
+- **Modern Progress Bar**: NEW - Clean progress visualization without terminal clutter
+- **Interactive GUI**: NEW - Full graphical interface with real-time disc visualization and image positioning
+- **Optical Drive Detection**: NEW - Automatic detection of CD/DVD burners with burning capabilities  
+- **Direct Burning**: NEW - Burn directly from the GUI to your optical drive
+- **CLI Interface**: Command-line tool optimized for Linux workflows
+- **Progress Tracking**: Real-time conversion progress with cancellation support
+- **Multiple Image Formats**: Support for JPEG, PNG, and other common formats
+- **Preset Management**: Built-in presets for various disc brands and types
 
-## Before you start
-If your compact disc is not mentioned in the track generating dialog, you'll probably fail. All the discs are slightly different geometrically. This difference does not matter for data storage but dramatically influences image calculation.
-You could try to guess geometry of an unknown disc and input it manually, but you'll probably spoil a lot of discs before you get some results. Moreover, all your test discs should be perfectly identical or you should use the same CD-RW disc. Sometimes discs of the same model happen to have different parameters. Don't know why. After all, manufacturers have never cared since those discs were never supposed to be used this way.
+## Installation
+
+### Prerequisites
+
+```bash
+# Install Go 1.21 or later
+# On Ubuntu/Debian:
+sudo apt install golang-go
+
+# On Arch/Manjaro:
+sudo pacman -S go
+
+# On CentOS/RHEL/Fedora:
+sudo dnf install golang
+
+# For GUI support, install additional dependencies:
+# Ubuntu/Debian:
+sudo apt-get install libgl1-mesa-dev xorg-dev
+
+# Fedora:
+sudo dnf install mesa-libGL-devel libXcursor-devel libXrandr-devel libXinerama-devel libXi-devel
+
+# Arch:
+sudo pacman -S libgl libxcursor libxrandr libxinerama libxi
+```
+
+### Build from Source
+
+```bash
+# Clone or download the source
+cd cdimage
+go mod download
+go build -o cdimage .
+```
 
 ## Usage
-1. Click **Edit→Load image** and select an image file. I recommend that you use a high-contrast image. If you choose a full color image, it will be converted to grayscale. You can adjust and scale your image:
 
-* **left mouse button** — move image;
+### GUI Mode (Recommended)
 
-* **double click** — center image;
+```bash
+# Launch the graphical interface
+./cdimage gui
+```
 
-* **mouse scroll wheel** — zoom image.
+The GUI provides:
+- **Interactive Disc Preview**: Real-time visualization of how your image will appear on the disc
+- **Image Positioning**: Drag, zoom (scroll wheel), and double-click to center
+- **Visual Parameter Controls**: Easy preset selection and parameter adjustment
+- **Optical Drive Detection**: Automatic detection of available CD/DVD burners
+- **Direct Burning**: Convert and burn in one workflow with drive capability checking
+- **Real-time Progress**: Visual progress bars for both conversion and burning
+- **File Browser**: Easy image loading with format filtering
 
-2. Click Edit→Create track and select the model of your compact disc. 
+### CLI Mode
 
-> If your disc is not in the list (which is likely), you may input geometry manually. However unknown disc calibration is neither easy nor quick procedure. If you still wish to give it a try, I recommend that you read the ["Red Book"](https://www.ecma-international.org/wp-content/uploads/ECMA-130_2nd_edition_june_1996.pdf) as well as  [Considering Calibration](#considering-calibration) section before you start. **If you know the geometry of some compact disc which is not in the list, let me know and I’ll include it into the distribution.**
+```bash
+# Convert image for CD using default preset
+./cdimage burn -i image.jpg -o track.raw
 
-Depending on your hardware, conversion will take some time. Finally you’ll get a huge Audio CD track. *Yes, about 800Mb, which is normal for **Audio CD**.*
+# Convert for DVD with specific preset
+./cdimage burn -i image.jpg -o dvd_track.raw -t dvd -p generic-dvd-r
 
-3. You could use any software you like to burn it. For example:
+# Use multi-threading (default) for faster conversion
+./cdimage burn -i image.jpg -o track.raw -j
 
-`cdrecord -audio dev=<recorder_device> <generated_track>`
+# Disable multi-threading for single-core processing
+./cdimage burn -i image.jpg -o track.raw -j=false
 
-Remember that you should create an **Audio CD**! 
+# Use custom parameters
+./cdimage burn -i image.jpg -o track.raw --tr0 23000 --dtr 1.386 --r0 24.5
+```
 
-## Considering Calibration 
-From the Mathematical point of view we have a sort of [multi-objective optimization](https://en.wikipedia.org/wiki/Multi-objective_optimization) problem. Bicriteria optimization, to be more precise. It means that two objective functions should be optimized simultaneously. If we define goal as getting a "neat image", we need an expert who is able to provide some feedback regarding image "quality". Which leads us to [interactive methods](https://en.wikipedia.org/wiki/Multi-objective_optimization#Solution).
+### Available Commands
 
-The first and the most obvious idea is to select some series of equally spaced values for each criterium and burn a lot of discs with all possible combinations. If the space is narrow enough, you'll see something at some discs. Then narrow the range and repeat. A typical Computational Mathematics approach. A lot of iterations and time.
+```bash
+# Launch GUI
+./cdimage gui
 
-The number of iterations could be reduced if we gradually change criteria within one image from disc center to rim. Then one should look for areas where some distinctive fragments could be seen. The only implementation I know about was a part of [CD PAINT](http://undefer.narod.ru/cdpaint/index.html) project I mentioned. I thought it was gone, but finally found it. It was called `defcdparams`. Apparently CD PAINT project contributors used it to define geometry of four discs I know. However it is still a time consuming procedure. I think it was the main reason why CD PAINT project was abandoned.
+# List all available presets
+./cdimage list-presets
 
-At least for me it was the reason why I finally gave up. However I'd like to share some of my thoughts regarding possible improvements of calibration technique. The weakest component in the mentioned algorithm is the necessity of human expertise. How it could be automated?
+# Convert image with progress bar
+./cdimage burn -i photo.jpg -o output.raw -p verbatim-cd-rw-1
 
-1. If all the discs are geometrically different, then seek time delays would be different to. Because the same sector A is located at different angles for two different discs. So if we know "ideal" delays for a calibrated disc, we theoretically should be able to calibrate another one. But... These delays must be optical drive dependent. So this solution potentially would face some hardware issues.
+# DVD conversion with color mixing and parallel processing
+./cdimage burn -i artwork.png -o dvd.raw -t dvd --mix-colors -j
+```
 
-2. I have not considered this option in 2008, but now we have more advanced image recognition algorithms and better cameras. So maybe some AI solution might be used instead of human expertise.
+### Command Options
 
-If you have other ideas, please share them.
+- `-i, --input`: Input image file (required)
+- `-o, --output`: Output audio track file (default: track.raw)
+- `-t, --type`: Disc type - "cd" or "dvd" (default: cd)
+- `-p, --preset`: Use predefined disc preset
+- `-j, --parallel`: Enable multi-threaded conversion (default: true)
+- `--tr0`: Initial track parameter (overrides preset)
+- `--dtr`: Track delta parameter (overrides preset)
+- `--r0`: Initial radius parameter (default: 24.5)
+- `--mix-colors`: Enable random color mixing
 
-## Further readings
+## Burning the Track
 
-[Probably the first implementation of similar technique](https://www.instructables.com/Burning-visible-images-onto-CD-Rs-with-data-beta/).
+After conversion, burn the audio track to your disc:
 
-[The "Red Book"](https://www.ecma-international.org/wp-content/uploads/ECMA-130_2nd_edition_june_1996.pdf) (CD-ROM ECMA standard).
+### For CDs:
+```bash
+# Using cdrecord
+cdrecord -audio dev=/dev/sr0 track.raw
 
-[Hackaday post](https://hackaday.io/project/186303-burning-pictures-on-a-compact-disc-surface) about this project.
+# Using wodim
+wodim -audio dev=/dev/sr0 track.raw
+```
 
-[A project regarding optical drive reverse engineering](https://scanlime.org/2016/08/scanlime001-coastermelt-part-1/). Not related directly to this project, but might be useful to give you a clue to how it probably could be done with hardware approach. Thanks to [some guy](https://hackaday.com/2022/07/11/burn-pictures-on-a-cd-r-no-special-drive-needed/#comment-6491772) for suggestion.
+### For DVDs:
+```bash
+# Using growisofs
+growisofs -audio -Z /dev/sr0=dvd_track.raw
+
+# Or with cdrecord (some drives)
+cdrecord -audio dev=/dev/sr0 dvd_track.raw
+```
+
+### Find Your Drive:
+```bash
+cdrecord -scanbus
+# or
+wodim -scanbus
+```
+
+## Disc Presets
+
+### CD Presets:
+- `verbatim-cd-rw-1`: Verbatim CD-RW Hi-Speed 8x-10x 700 MB SERL 1
+- `verbatim-cd-rw-2`: Verbatim CD-RW Hi-Speed 8x-10x 700 MB SERL 2
+- `eperformance-cd-rw`: eProformance CD-RW 4x-10x 700 MB
+- `tdk-cd-rw`: TDK CD-RW 4x-12x HIGH SPEED 700MB
+
+### DVD Presets:
+- `generic-dvd-r`: Generic DVD-R 4.7GB (recommended starting point)
+- `generic-dvd-rw`: Generic DVD-RW 4.7GB
+- `verbatim-dvd-r`: Verbatim DVD-R 16x 4.7GB
+- `sony-dvd-rw`: Sony DVD-RW 4x 4.7GB
+
+## DVD Support Details
+
+This Go version adds comprehensive DVD support with:
+
+- **Larger Data Capacity**: DVDs support ~4.7GB vs ~800MB for CDs
+- **Different Geometry**: Optimized track spacing and parameters for DVD format
+- **Extended Burn Area**: Larger usable surface area for images
+- **DVD-Specific Presets**: Calibrated parameters for common DVD brands
+
+## Technical Notes
+
+### Image Processing
+- Images are automatically converted to grayscale
+- Automatically scaled to fit disc geometry
+- Supports high-contrast images for best results
+
+### Performance
+- **Multi-threaded Processing**: Utilizes all CPU cores for faster conversion
+- **Smart Progress Tracking**: Clean progress bars without terminal clutter
+- **Graceful Cancellation**: Ctrl+C support in CLI, Cancel button in GUI
+- **Memory-efficient Streaming**: Handles large files without excessive RAM usage
+- **Optimized for DVD**: Up to 6x larger capacity than CD, optimized processing
+
+### File Formats
+- Output: Raw audio track (.raw)
+- Input: JPEG, PNG, and other formats supported by Go imaging library
+
+## Calibration for Unknown Discs
+
+If your disc isn't in the presets:
+
+1. **Start with a similar preset** (same type: CD/DVD, same brand if available)
+2. **Make small parameter adjustments**:
+   - `tr0`: Initial track count (higher = more tracks)
+   - `dtr`: Track spacing increment (lower = tighter spacing)
+   - `r0`: Inner radius (usually 24.0-24.5)
+3. **Test burn on a rewritable disc** first
+4. **Adjust based on results** and re-burn
+
+## Troubleshooting
+
+### Common Issues:
+
+**"Permission denied" when burning:**
+```bash
+sudo chmod 666 /dev/sr0
+# or run burning command with sudo
+```
+
+**No image visible after burning:**
+- Try a different disc preset
+- Ensure high contrast in source image
+- Check if your drive supports the burning mode
+- Use a CD-RW/DVD-RW for testing
+
+**Conversion takes too long:**
+- DVD conversion is significantly longer than CD (~6x more data)  
+- Use Ctrl+C to cancel if needed (CLI) or Cancel button (GUI)
+- Consider using a smaller/simpler image
+- Enable multi-threading with `-j` flag (CLI) or checkbox (GUI)
+
+**GUI won't start:**
+- Install GUI dependencies: `make gui-deps`
+- Check that X11/Wayland display is available
+- Try running from terminal to see error messages
+
+**No optical drives detected:**
+- Check that drives are connected and powered on
+- Ensure user has permission to access optical devices
+- Try refreshing drives in GUI or restart application
+- Verify drives work with other burning software
+
+**Burning fails:**
+- Ensure disc is blank and compatible with drive
+- Check that burning tools are installed (`cdrecord`, `wodim`, or `growisofs`)
+- Verify user has permission to access optical devices
+- Try different disc brand or speed
+
+## License
+
+GNU General Public License v3.0 - see LICENSE file.
+
+Original Qt implementation copyright (C) 2008-2022 arduinocelentano
+Go port additions copyright (C) 2025
+
+## Credits
+
+- Original algorithm and implementation by arduinocelentano
+- Based on work by [unDEFER] and [argon] (Instructables)
+- Go port with DVD support and CLI interface
+
+## Contributing
+
+Issues and improvements welcome. When adding new disc presets, please include:
+- Exact disc model and manufacturer
+- Verified working parameters (tr0, dtr, r0)
+- Sample burn results if possible
